@@ -113,11 +113,12 @@ class HybridMambaVLAConfig(PreTrainedConfig):
     use_vae: bool = True
     latent_dim: int = 32
     n_vae_encoder_layers: int = 4
-    # New Mamba parameters 
-    mamba_d_model: int = 512
-    mamba_n_layers: int = 4
-    mamba_d_state: int = 16
-    mamba_d_conv: int = 4
+    # Mamba-2 SSM (action expert decoder)
+    use_mamba_decoder: bool = True
+    mamba_state_size: int = 16
+    mamba_num_heads: int = 16
+    mamba_head_dim: int = 64
+    mamba_conv_kernel: int = 4
     mamba_expand: int = 2
 
     # Inference.
@@ -136,7 +137,6 @@ class HybridMambaVLAConfig(PreTrainedConfig):
 
     def __post_init__(self):
         super().__post_init__()
-
         """Input validation (not exhaustive)."""
         if not self.vision_backbone.startswith("resnet"):
             raise ValueError(
@@ -155,6 +155,11 @@ class HybridMambaVLAConfig(PreTrainedConfig):
         if self.n_obs_steps != 1:
             raise ValueError(
                 f"Multiple observation steps not handled yet. Got `nobs_steps={self.n_obs_steps}`"
+            )
+        if self.use_mamba_decoder and self.mamba_num_heads * self.mamba_head_dim != self.mamba_expand * self.dim_model:
+            raise ValueError(
+                "Mamba2 requires num_heads * head_dim == expand * dim_model. "
+                f"Got {self.mamba_num_heads * self.mamba_head_dim} != {self.mamba_expand * self.dim_model}."
             )
 
     def get_optimizer_preset(self) -> AdamWConfig:

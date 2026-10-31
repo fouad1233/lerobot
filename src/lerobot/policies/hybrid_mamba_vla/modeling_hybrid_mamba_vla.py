@@ -31,6 +31,7 @@ import torch
 import torch.nn.functional as F  # noqa: N812
 import torchvision
 from torch import Tensor, nn
+from fla.layers import Mamba2
 from torchvision.models._utils import IntermediateLayerGetter
 from torchvision.ops.misc import FrozenBatchNorm2d
 
@@ -294,7 +295,7 @@ class ACT(nn.Module):
                                 └───────────────────────┘
     """
 
-    def __init__(self, config: ACTConfig) -> None:
+    def __init__(self, config: HybridMambaVLAConfig) -> None:
         # BERT style VAE encoder with input tokens [cls, robot_state, *action_sequence].
         # The cls token forms parameters of the latent's distribution (like this [*means, *log_variances]).
         super().__init__()
@@ -525,7 +526,7 @@ class ACT(nn.Module):
 class ACTEncoder(nn.Module):
     """Convenience module for running multiple encoder layers, maybe followed by normalization."""
 
-    def __init__(self, config: ACTConfig, is_vae_encoder: bool = False):
+    def __init__(self, config: HybridMambaVLAConfig, is_vae_encoder: bool = False):
         super().__init__()
         self.is_vae_encoder = is_vae_encoder
         num_layers = config.n_vae_encoder_layers if self.is_vae_encoder else config.n_encoder_layers
@@ -542,7 +543,7 @@ class ACTEncoder(nn.Module):
 
 
 class ACTEncoderLayer(nn.Module):
-    def __init__(self, config: ACTConfig):
+    def __init__(self, config: HybridMambaVLAConfig):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(config.dim_model, config.n_heads, dropout=config.dropout)
 
@@ -581,7 +582,7 @@ class ACTEncoderLayer(nn.Module):
 
 
 class ACTDecoder(nn.Module):
-    def __init__(self, config: ACTConfig):
+    def __init__(self, config: HybridMambaVLAConfig):
         """Convenience module for running multiple decoder layers followed by normalization."""
         super().__init__()
         self.layers = nn.ModuleList([ACTDecoderLayer(config) for _ in range(config.n_decoder_layers)])
@@ -604,11 +605,23 @@ class ACTDecoder(nn.Module):
 
 
 class ACTDecoderLayer(nn.Module):
-    def __init__(self, config: ACTConfig):
+    def __init__(self, config: HybridMambaVLAConfig):
         super().__init__()
-        self.self_attn = nn.MultiheadAttention(config.dim_model, config.n_heads, dropout=config.dropout)
-        self.multihead_attn = nn.MultiheadAttention(config.dim_model, config.n_heads, dropout=config.dropout)
+        self.use_mamba = config.use_mamba_decoder   # ← ADD THIS
 
+        if config.use_mamba_decoder:
+            # Mamba-2 SSM replaces self-attention for mixing the action token sequence
+            self.action_ssm = Mamba2(
+                hidden_size=config.dim_model,
+                state_size=config.mamba_state_size,
+                num_heads=config.mamba_num_heads,
+                head_dim=config.mamba_head_dim,
+                conv_kernel=config.mamba_conv_kernel,
+                expand=config.mamba_expand,
+            )
+        else:
+            self.self_attn = nn.MultiheadAttention(config.dim_model, config.n_heads, dropout=config.dropout)
+        self.multihead_attn = nn.MultiheadAttention(config.dim_model, config.n_heads, dropout=config.dropout)
         # Feed forward layers.
         self.linear1 = nn.Linear(config.dim_model, config.dim_feedforward)
         self.dropout = nn.Dropout(config.dropout)
@@ -647,9 +660,15 @@ class ACTDecoderLayer(nn.Module):
         skip = x
         if self.pre_norm:
             x = self.norm1(x)
-        q = k = self.maybe_add_pos_embed(x, decoder_pos_embed)
-        x = self.self_attn(q, k, value=x)[0]  # select just the output, not the attention weights
-        x = skip + self.dropout1(x)
+        if self.use_mamba:
+            # x is (seq, batch, channel) → Mamba2 wants (batch, seq, channel)
+            x_ssm = self.action_ssm(x.transpose(0, 1))[0].transpose(0, 1)
+            x = skip + self.dropout1(x_ssm)
+        else:
+            q = k = self.maybe_add_pos_embed(x, decoder_pos_embed)
+            x = self.self_attn(q, k, value=x)[0]
+            x = skip + self.dropout1(x)
+            
         if self.pre_norm:
             skip = x
             x = self.norm2(x)
