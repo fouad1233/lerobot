@@ -37,23 +37,24 @@ from torchvision.ops.misc import FrozenBatchNorm2d
 from lerobot.utils.constants import ACTION, OBS_ENV_STATE, OBS_IMAGES, OBS_STATE
 
 from ..pretrained import PreTrainedPolicy
-from .configuration_act import ACTConfig
+from .configuration_hybrid_mamba_vla import HybridMambaVLAConfig
 
 
-class ACTPolicy(PreTrainedPolicy):
+
+class HybridMambaVLAPolicy(PreTrainedPolicy):
     """
     Action Chunking Transformer Policy as per Learning Fine-Grained Bimanual Manipulation with Low-Cost
     Hardware (paper: https://huggingface.co/papers/2304.13705, code: https://github.com/tonyzhaozh/act)
     """
 
-    config_class = ACTConfig
-    name = "act"
+    config_class = HybridMambaVLAConfig
+    name = "hybrid_mamba_vla"
     # FSDP2 wrap units: one unit per transformer layer of both stacks.
     _fsdp_wrap_modules = ["ACTEncoderLayer", "ACTDecoderLayer"]
 
     def __init__(
         self,
-        config: ACTConfig,
+        config: HybridMambaVLAConfig,
         **kwargs,
     ):
         """

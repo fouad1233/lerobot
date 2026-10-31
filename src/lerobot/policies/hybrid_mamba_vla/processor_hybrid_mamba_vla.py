@@ -23,17 +23,17 @@ from lerobot.processor import (
     make_default_pre_post_processors,
 )
 
-from .configuration_act import ACTConfig
+from .configuration_hybrid_mamba_vla import HybridMambaVLAConfig
 
 
-def make_act_pre_post_processors(
-    config: ACTConfig,
+def make_hybrid_mamba_vla_pre_post_processors(
+    config: HybridMambaVLAConfig,
     dataset_stats: dict[str, dict[str, torch.Tensor]] | None = None,
 ) -> tuple[
     PolicyProcessorPipeline[dict[str, Any], dict[str, Any]],
     PolicyProcessorPipeline[PolicyAction, PolicyAction],
 ]:
-    """Creates the pre- and post-processing pipelines for the ACT policy.
+    """Creates the pre- and post-processing pipelines for the HybridMambaVLA policy.
 
     The pre-processing pipeline handles normalization, batching, and device placement for the model inputs.
     The post-processing pipeline handles unnormalization and moves the model outputs back to the CPU.
