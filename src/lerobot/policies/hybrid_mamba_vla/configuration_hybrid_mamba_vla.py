@@ -19,9 +19,9 @@ from lerobot.configs import NormalizationMode, PreTrainedConfig
 from lerobot.optim import AdamWConfig
 
 
-@PreTrainedConfig.register_subclass("act")
+@PreTrainedConfig.register_subclass("hybrid_mamba_vla")
 @dataclass
-class ACTConfig(PreTrainedConfig):
+class HybridMambaVLAConfig(PreTrainedConfig):
     """Configuration class for the Action Chunking Transformers policy.
 
     Defaults are configured for training on bimanual Aloha tasks like "insertion" or "transfer".
@@ -113,6 +113,12 @@ class ACTConfig(PreTrainedConfig):
     use_vae: bool = True
     latent_dim: int = 32
     n_vae_encoder_layers: int = 4
+    # New Mamba parameters 
+    mamba_d_model: int = 512
+    mamba_n_layers: int = 4
+    mamba_d_state: int = 16
+    mamba_d_conv: int = 4
+    mamba_expand: int = 2
 
     # Inference.
     # Note: the value used in ACT when temporal ensembling is enabled is 0.01.

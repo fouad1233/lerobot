@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .configuration_act import ACTConfig
-from .modeling_act import ACTPolicy
-from .processor_act import make_act_pre_post_processors
+from .configuration_hybrid_mamba_vla import HybridMambaVLAConfig
+from .modeling_hybrid_mamba_vla import HybridMambaVLAPolicy
+from .processor_hybrid_mamba_vla import make_hybrid_mamba_vla_pre_post_processors
 
-__all__ = ["ACTConfig", "ACTPolicy", "make_act_pre_post_processors"]
+__all__ = ["HybridMambaVLAConfig", "HybridMambaVLAPolicy", "make_hybrid_mamba_vla_pre_post_processors"]
